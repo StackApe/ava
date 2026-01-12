@@ -207,6 +207,36 @@
       font-family: monospace;
       font-size: 14px;
     }
+    .code-block {
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: var(--muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s;
+    }
+    .code-block:hover .copy-btn {
+      opacity: 1;
+    }
+    .copy-btn:hover {
+      background: rgba(53,240,255,0.2);
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+    .copy-btn.copied {
+      background: rgba(64,255,155,0.2);
+      color: #40ff9b;
+      border-color: #40ff9b;
+    }
     #input-area {
       padding: 16px 20px;
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -548,10 +578,28 @@
 
     function formatResponse(text) {
       let html = escapeHtml(text);
-      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+      // Code blocks with copy button
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        const id = 'code_' + Math.random().toString(36).substr(2, 9);
+        return `<div class="code-block"><button class="copy-btn" onclick="copyCode('${id}')">Copy</button><pre id="${id}"><code>${code}</code></pre></div>`;
+      });
       html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
       html = html.replace(/\n/g, '<br>');
       return html;
+    }
+
+    function copyCode(id) {
+      const block = document.getElementById(id);
+      const code = block.textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = block.parentElement.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
     }
   </script>
 </body>
