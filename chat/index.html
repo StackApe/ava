@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ava - ApX Virtual Assistant</title>
+  <style>
+    :root {
+      --bg: #0a0b13;
+      --panel: #121426;
+      --ink: #e7e7ff;
+      --cyan: #35f0ff;
+      --mag: #ff38d6;
+      --muted: #9aa0b3;
+      --user-bg: #1a1d2e;
+      --ava-bg: #0f1222;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    header h1 span { color: var(--cyan); }
+    header small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    #status {
+      margin-left: auto;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: #1a3a1a;
+      color: #4ade80;
+    }
+    #status.offline {
+      background: #3a1a1a;
+      color: #f87171;
+    }
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .msg {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--user-bg);
+      border: 1px solid rgba(53,240,255,0.2);
+    }
+    .msg.ava {
+      align-self: flex-start;
+      background: var(--ava-bg);
+      border: 1px solid rgba(255,56,214,0.2);
+    }
+    .msg.ava .label {
+      font-size: 11px;
+      color: var(--mag);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .msg code {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .msg pre {
+      background: rgba(0,0,0,0.4);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 8px 0;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    #input-area {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: var(--panel);
+      display: flex;
+      gap: 12px;
+    }
+    #input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 16px;
+      outline: none;
+      resize: none;
+      min-height: 48px;
+      max-height: 150px;
+    }
+    #input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(53,240,255,0.1);
+    }
+    #send {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan), var(--mag));
+      color: #000;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #send:hover { opacity: 0.9; }
+    #send:disabled { opacity: 0.5; cursor: not-allowed; }
+    .typing {
+      color: var(--muted);
+      font-style: italic;
+    }
+    @media (max-width: 600px) {
+      .msg { max-width: 95%; }
+      #send { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span>Ava</span></h1>
+    <small>ApX Virtual Assistant</small>
+    <div id="status">Connecting...</div>
+  </header>
+
+  <div id="chat">
+    <div class="msg ava">
+      <div class="label">Ava</div>
+      Hi! I'm Ava, your ApX Virtual Assistant. Ask me anything about ApX!
+    </div>
+  </div>
+
+  <div id="input-area">
+    <textarea id="input" placeholder="Ask Ava about ApX..." rows="1"></textarea>
+    <button id="send">Send</button>
+  </div>
+
+  <script>
+    const OLLAMA_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:11434'
+      : `http://${window.location.hostname}:11434`;
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const status = document.getElementById('status');
+
+    // Check connection
+    async function checkConnection() {
+      try {
+        const res = await fetch(`${OLLAMA_URL}/api/tags`);
+        if (res.ok) {
+          status.textContent = 'Online';
+          status.classList.remove('offline');
+        }
+      } catch {
+        status.textContent = 'Offline';
+        status.classList.add('offline');
+      }
+    }
+    checkConnection();
+    setInterval(checkConnection, 30000);
+
+    // Auto-resize textarea
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    });
+
+    // Send on Enter (Shift+Enter for newline)
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add user message
+      addMessage(text, 'user');
+      input.value = '';
+      input.style.height = 'auto';
+      sendBtn.disabled = true;
+
+      // Add typing indicator
+      const typingEl = document.createElement('div');
+      typingEl.className = 'msg ava typing';
+      typingEl.innerHTML = '<div class="label">Ava</div>Thinking...';
+      chat.appendChild(typingEl);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'ava',
+            prompt: text,
+            stream: false
+          })
+        });
+
+        const data = await res.json();
+        typingEl.remove();
+        addMessage(data.response, 'ava');
+      } catch (err) {
+        typingEl.remove();
+        addMessage('Error: Could not connect to Ava. Make sure Ollama is running.', 'ava');
+      }
+
+      sendBtn.disabled = false;
+      input.focus();
+    }
+
+    function addMessage(text, sender) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${sender}`;
+
+      if (sender === 'ava') {
+        msg.innerHTML = '<div class="label">Ava</div>' + formatResponse(text);
+      } else {
+        msg.textContent = text;
+      }
+
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function formatResponse(text) {
+      // Simple markdown-like formatting
+      return text
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+    }
+  </script>
+</body>
+</html>
